@@ -1,4 +1,6 @@
-// 위치: src/components/panel/RoadviewPanel.jsx
+// 개발 프론트 위치: TERRY\p02_frontEnd_React\src\panel\RoadviewPanel.jsx
+// 공식 프론트 위치: frontend\src\components\map\panel\RoadviewPanel.jsx
+
 // 로드뷰 - 버튼 ON 후 지도 클릭 시 해당 좌표로 열림
 
 import { useEffect, useRef, useState } from "react";

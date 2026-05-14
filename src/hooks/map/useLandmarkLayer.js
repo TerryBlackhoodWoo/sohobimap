@@ -9,7 +9,9 @@ import Point from "ol/geom/Point";
 import { fromLonLat } from "ol/proj";
 import { Style, Circle as CircleStyle, Fill, Stroke } from "ol/style";
 
-const MAP_URL = import.meta.env.VITE_MAP_URL || "http://localhost:8681";
+const MAP_URL = import.meta.env.VITE_MAP_URL || "/map-api";
+const _API_KEY = import.meta.env.VITE_API_KEY || "";
+const _mapHeaders = _API_KEY ? { "X-API-Key": _API_KEY } : {};
 
 // ── 타입별 스타일 설정 ────────────────────────────────────────
 const TYPE_STYLE = {
@@ -17,7 +19,6 @@ const TYPE_STYLE = {
    14: { color: "#8b5cf6", label: "문화" }, // 문화시설 - 보라
    15: { color: "#ef4444", label: "축제" }, // 축제 - 빨강
    school: { color: "#10b981", label: "학교" }, // 학교 - 초록
-   sdot: { color: "#0ea5e9", label: "유동센서" }, // S-DoT - 하늘
 };
 
 function makeStyle(typeKey, selected = false) {
@@ -62,6 +63,7 @@ export function useLandmarkLayer(mapInstance) {
       const layer = new VectorLayer({
          source: new VectorSource({ features }),
          zIndex,
+         minZoom: 16,
       });
       map.addLayer(layer);
       return layer;
@@ -74,17 +76,23 @@ export function useLandmarkLayer(mapInstance) {
          const url = adm_cd
             ? `${MAP_URL}/map/landmarks?adm_cd=${adm_cd}&types=12,14`
             : `${MAP_URL}/map/landmarks?types=12,14`;
-         const json = await (await fetch(url)).json();
-         const features = makeFeatures(json.landmarks || [], "12");
-         // 타입별 스타일 적용
-         features.forEach((f) => {
-            const d = f.get("lmData");
-            f.setStyle(makeStyle(String(d.content_type_id)));
-         });
+         const json = await (await fetch(url, { headers: _mapHeaders })).json();
+         const features = (json.landmarks || [])
+            .filter((d) => d.lng && d.lat)
+            .map((d) => {
+               const typeKey = String(d.content_type_id);
+               const f = new Feature({
+                  geometry: new Point(fromLonLat([d.lng, d.lat])),
+               });
+               f.set("lmData", d);
+               f.set("lmType", typeKey);
+               f.setStyle(makeStyle(typeKey));
+               return f;
+            });
          if (landmarkLayerRef.current) {
             mapInstance.current?.removeLayer(landmarkLayerRef.current);
          }
-         landmarkLayerRef.current = addLayer(features, 210);
+         landmarkLayerRef.current = addLayer(features, 55);
       } catch (e) {
          console.error("[useLandmarkLayer] loadLandmarks:", e);
       }
@@ -93,13 +101,16 @@ export function useLandmarkLayer(mapInstance) {
    // ── 축제 (API 실시간) ────────────────────────────────────────
    const loadFestivals = async (adm_cd) => {
       try {
-         const res = await fetch(`${MAP_URL}/map/festivals?adm_cd=${adm_cd}`);
+         const url = adm_cd
+            ? `${MAP_URL}/map/festivals?adm_cd=${adm_cd}`
+            : `${MAP_URL}/map/festivals`;
+         const res = await fetch(url, { headers: _mapHeaders });
          const json = await res.json();
          const features = makeFeatures(json.festivals || [], "15");
          if (festivalLayerRef.current) {
             mapInstance.current?.removeLayer(festivalLayerRef.current);
          }
-         festivalLayerRef.current = addLayer(features, 211);
+         festivalLayerRef.current = addLayer(features, 56);
       } catch (e) {
          console.error("[useLandmarkLayer] loadFestivals:", e);
       }
@@ -111,7 +122,7 @@ export function useLandmarkLayer(mapInstance) {
          const url = sgg_nm
             ? `${MAP_URL}/map/schools?sgg_nm=${encodeURIComponent(sgg_nm)}`
             : `${MAP_URL}/map/schools`;
-         const res = await fetch(url);
+         const res = await fetch(url, { headers: _mapHeaders });
          const json = await res.json();
          const features = makeFeatures(
             json.schools || [],
@@ -121,7 +132,7 @@ export function useLandmarkLayer(mapInstance) {
          if (schoolLayerRef.current) {
             mapInstance.current?.removeLayer(schoolLayerRef.current);
          }
-         schoolLayerRef.current = addLayer(features, 212);
+         schoolLayerRef.current = addLayer(features, 57);
       } catch (e) {
          console.error("[useLandmarkLayer] loadSchools:", e);
       }
@@ -131,25 +142,6 @@ export function useLandmarkLayer(mapInstance) {
    const setLandmarkVisible = (v) => landmarkLayerRef.current?.setVisible(v);
    const setFestivalVisible = (v) => festivalLayerRef.current?.setVisible(v);
    const setSchoolVisible = (v) => schoolLayerRef.current?.setVisible(v);
-
-   // ── S-DoT 센서 위치 (DB) ────────────────────────────────────
-   const sdotLayerRef = useRef(null);
-
-   const loadSdot = async () => {
-      try {
-         const res = await fetch(`${MAP_URL}/map/sdot/sensors`);
-         const json = await res.json();
-         const features = makeFeatures(json.sensors || [], "sdot");
-         if (sdotLayerRef.current) {
-            mapInstance.current?.removeLayer(sdotLayerRef.current);
-         }
-         sdotLayerRef.current = addLayer(features, 213);
-      } catch (e) {
-         console.error("[useLandmarkLayer] loadSdot:", e);
-      }
-   };
-
-   const setSdotVisible = (v) => sdotLayerRef.current?.setVisible(v);
 
    // ── 마커 하이라이트 ──────────────────────────────────────────
    const selectLandmark = (feature) => {
@@ -169,12 +161,7 @@ export function useLandmarkLayer(mapInstance) {
    const clearLandmarks = () => {
       const map = mapInstance.current;
       if (!map) return;
-      [
-         landmarkLayerRef,
-         festivalLayerRef,
-         schoolLayerRef,
-         sdotLayerRef,
-      ].forEach((ref) => {
+      [landmarkLayerRef, festivalLayerRef, schoolLayerRef].forEach((ref) => {
          if (ref.current) {
             map.removeLayer(ref.current);
             ref.current = null;
@@ -186,15 +173,12 @@ export function useLandmarkLayer(mapInstance) {
       landmarkLayerRef,
       festivalLayerRef,
       schoolLayerRef,
-      sdotLayerRef,
       loadLandmarks,
       loadFestivals,
       loadSchools,
-      loadSdot,
       setLandmarkVisible,
       setFestivalVisible,
       setSchoolVisible,
-      setSdotVisible,
       selectLandmark,
       clearLandmarks,
    };

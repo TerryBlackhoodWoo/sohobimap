@@ -1,7 +1,8 @@
-// components/StorePopup.jsx
+// 개발 프론트 위치: TERRY\p02_frontEnd_React\src\popup\StorePopup.jsx
+// 공식 프론트 위치: frontend\src\components\map\popup\StorePopup.jsx
+import { useState } from "react";
+import "./StorePopup.css";
 
-// ── 업종 색상 헬퍼 ─────────────────────────────────────────────
-// CAT_CD(I2,G2...) 기반 색상
 const CAT_STYLE = {
    I2: { color: "#FF6B6B", bg: "#FFF0F0", label: "음식" },
    G2: { color: "#FF9800", bg: "#FFF8F0", label: "소매" },
@@ -19,256 +20,261 @@ function getCatStyle(catCd) {
    return CAT_STYLE[catCd] || { color: "#555", bg: "#F5F5F5", label: "기타" };
 }
 
-// ── 메인 컴포넌트: 소상공인 마커 클릭 팝업 (카카오 연동) ───────
-export default function StorePopup({
+// ── 상가 리스트 아이템 ──────────────────────────────────────────
+function StoreItem({ store, onClick, variant = "nearby" }) {
+   const c = getCatStyle(store.CAT_CD);
+   return (
+      <div
+         onClick={() => onClick?.(store)}
+         className={`sp-store-item${variant === "list" ? " sp-store-item--list" : ""}`}
+      >
+         <div className="sp-store-dot" style={{ background: c.color }} />
+         <div className="sp-store-info">
+            <div className="sp-store-name">{store.STORE_NM}</div>
+            <div className="sp-store-meta">
+               {c.label}{variant === "list" && store.ADM_NM ? ` · ${store.ADM_NM}` : ""}
+            </div>
+         </div>
+      </div>
+   );
+}
+
+// ── 클러스터 목록 뷰 ────────────────────────────────────────────
+function ClusterListView({ stores, onSelect, onClose }) {
+   const [filter, setFilter] = useState("");
+   const filtered = filter
+      ? stores.filter(
+           (s) => s.STORE_NM?.includes(filter) || s.CAT_NM?.includes(filter),
+        )
+      : stores;
+
+   return (
+      <div className="sp-body">
+         <div className="sp-top">
+            <span className="sp-header-title">🏪 상가 {stores.length}개</span>
+            <button onClick={onClose} className="sp-close-btn">✕</button>
+         </div>
+         <input
+            type="text"
+            placeholder="상호명·업종 검색..."
+            value={filter}
+            onChange={(e) => setFilter(e.target.value)}
+            className="sp-search"
+         />
+         <div className="sp-scroll">
+            {filtered.map((s, i) => (
+               <StoreItem
+                  key={`${s.STORE_ID || "x"}-${i}`}
+                  store={s}
+                  onClick={onSelect}
+                  variant="list"
+               />
+            ))}
+            {filtered.length === 0 && (
+               <div className="sp-empty">검색 결과 없음</div>
+            )}
+         </div>
+      </div>
+   );
+}
+
+// ── 단일 상가 상세 뷰 ──────────────────────────────────────────
+function StoreDetailView({
    popup,
    kakaoDetail,
    loadingDetail,
    onClose,
+   nearbyStores,
+   onStoreSelect,
+   onBack,
+   onLandValue,
 }) {
-   if (!popup) return null;
    const cat = getCatStyle(popup.CAT_CD);
-
    return (
-      <div
-         style={{
-            position: "absolute",
-            bottom: 50,
-            left: "50%",
-            transform: "translateX(-50%)",
-            zIndex: 300,
-            width: 320,
-            background: "#fff",
-            borderRadius: 16,
-            boxShadow: "0 8px 32px rgba(0,0,0,0.18)",
-            overflow: "hidden",
-         }}
-      >
-         <div style={{ height: 4, background: cat.color }} />
-         <div style={{ padding: "12px 16px 16px" }}>
-            {/* 헤더 */}
-            <div
-               style={{
-                  display: "flex",
-                  justifyContent: "space-between",
-                  alignItems: "center",
-                  marginBottom: 8,
-               }}
-            >
+      <div className="sp-body">
+         <div className="sp-top">
+            <div className="sp-top-left">
+               {onBack && (
+                  <button onClick={onBack} className="sp-back-btn">←</button>
+               )}
                <div
+                  className="sp-tag"
                   style={{
-                     borderRadius: 20,
-                     padding: "3px 10px",
-                     fontSize: 11,
-                     fontWeight: 700,
                      background: cat.bg,
                      color: cat.color,
                      border: `1px solid ${cat.color}`,
                   }}
                >
-                  {cat.label || popup.CAT_NM}
+                  {popup.MID_CAT_NM || cat.label || popup.CAT_NM}
                </div>
-               <button
-                  onClick={onClose}
-                  style={{
-                     background: "transparent",
-                     border: "none",
-                     color: "#bbb",
-                     cursor: "pointer",
-                     fontSize: 16,
-                  }}
-               >
-                  ✕
-               </button>
             </div>
+            <button onClick={onClose} className="sp-close-btn">✕</button>
+         </div>
 
-            <div
-               style={{
-                  fontSize: 17,
-                  fontWeight: 700,
-                  color: "#111",
-                  marginBottom: 4,
-               }}
-            >
-               {popup.STORE_NM}
+         <div className="sp-title">{popup.STORE_NM}</div>
+         {popup.SUB_CAT_NM && (
+            <div className="sp-subtitle">
+               {popup.MID_CAT_NM} · {popup.SUB_CAT_NM}
             </div>
-            {popup.SUB_CAT_NM && (
-               <div style={{ fontSize: 12, color: "#888", marginBottom: 4 }}>
-                  {popup.MID_CAT_NM} · {popup.SUB_CAT_NM}
-               </div>
-            )}
-            <div
-               style={{ height: 1, background: "#f0f0f0", margin: "10px 0" }}
-            />
+         )}
+         <div className="sp-divider" />
 
-            {/* DB 데이터 */}
-            <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-               {popup.ROAD_ADDR && (
-                  <div
-                     style={{
-                        display: "flex",
-                        alignItems: "flex-start",
-                        gap: 7,
-                     }}
-                  >
-                     <span
-                        style={{ fontSize: 13, flexShrink: 0, marginTop: 1 }}
-                     >
-                        📍
-                     </span>
-                     <span
-                        style={{ fontSize: 13, color: "#444", lineHeight: 1.4 }}
-                     >
-                        {popup.ROAD_ADDR}
-                        {popup.FLOOR_INFO && ` ${popup.FLOOR_INFO}층`}
-                        {popup.UNIT_INFO && ` ${popup.UNIT_INFO}호`}
-                     </span>
-                  </div>
-               )}
-               <div
-                  style={{ display: "flex", alignItems: "flex-start", gap: 7 }}
-               >
-                  <span style={{ fontSize: 13, flexShrink: 0, marginTop: 1 }}>
-                     🏙️
-                  </span>
-                  <span
-                     style={{ fontSize: 13, color: "#444", lineHeight: 1.4 }}
-                  >
-                     {popup.SIDO_NM} {popup.SGG_NM} {popup.ADM_NM}
+         <div className="sp-rows">
+            {popup.ROAD_ADDR && (
+               <div className="sp-row">
+                  <span className="sp-row-icon">📍</span>
+                  <span className="sp-row-text">
+                     {popup.ROAD_ADDR}
+                     {popup.FLOOR_INFO && ` ${popup.FLOOR_INFO}층`}
+                     {popup.UNIT_INFO && ` ${popup.UNIT_INFO}호`}
                   </span>
                </div>
-            </div>
-
-            {/* 카카오 상세 */}
-            {loadingDetail && (
-               <div
-                  style={{
-                     marginTop: 10,
-                     fontSize: 12,
-                     color: "#999",
-                     textAlign: "center",
-                     padding: "8px 0",
-                  }}
-               >
-                  📱 카카오맵 상세정보 조회 중...
-               </div>
             )}
-            {!loadingDetail && kakaoDetail && (
-               <>
-                  <div
-                     style={{
-                        marginTop: 10,
-                        padding: "10px 12px",
-                        background: "#fffde7",
-                        borderRadius: 10,
-                        display: "flex",
-                        flexDirection: "column",
-                        gap: 6,
-                     }}
-                  >
-                     <div
-                        style={{
-                           fontSize: 11,
-                           fontWeight: 700,
-                           color: "#b8860b",
-                           marginBottom: 2,
-                        }}
-                     >
-                        📱 카카오맵 추가정보
+            <div className="sp-row">
+               <span className="sp-row-icon">🏙️</span>
+               <span className="sp-row-text">
+                  {popup.SIDO_NM} {popup.SGG_NM} {popup.ADM_NM}
+               </span>
+            </div>
+         </div>
+
+         {loadingDetail && (
+            <div className="sp-loading">📱 카카오맵 상세정보 조회 중...</div>
+         )}
+         {!loadingDetail && kakaoDetail && (
+            <>
+               <div className="sp-kakao-box">
+                  <div className="sp-kakao-box-title">📱 카카오맵 추가정보</div>
+                  {kakaoDetail.phone && (
+                     <div className="sp-row">
+                        <span className="sp-row-icon">📞</span>
+                        <a href={`tel:${kakaoDetail.phone}`} className="sp-link">
+                           {kakaoDetail.phone}
+                        </a>
                      </div>
-                     {kakaoDetail.phone && (
-                        <div
-                           style={{
-                              display: "flex",
-                              alignItems: "flex-start",
-                              gap: 7,
-                           }}
-                        >
-                           <span
-                              style={{
-                                 fontSize: 13,
-                                 flexShrink: 0,
-                                 marginTop: 1,
-                              }}
-                           >
-                              📞
-                           </span>
-                           <a
-                              href={`tel:${kakaoDetail.phone}`}
-                              style={{
-                                 fontSize: 13,
-                                 color: "#2563eb",
-                                 textDecoration: "none",
-                              }}
-                           >
-                              {kakaoDetail.phone}
-                           </a>
-                        </div>
-                     )}
-                     {kakaoDetail.category_name && (
-                        <div
-                           style={{
-                              display: "flex",
-                              alignItems: "flex-start",
-                              gap: 7,
-                           }}
-                        >
-                           <span
-                              style={{
-                                 fontSize: 13,
-                                 flexShrink: 0,
-                                 marginTop: 1,
-                              }}
-                           >
-                              🏷️
-                           </span>
-                           <span
-                              style={{
-                                 fontSize: 13,
-                                 color: "#444",
-                                 lineHeight: 1.4,
-                              }}
-                           >
-                              {kakaoDetail.category_name}
-                           </span>
-                        </div>
-                     )}
-                  </div>
+                  )}
+                  {kakaoDetail.category_name && (
+                     <div className="sp-row">
+                        <span className="sp-row-icon">🏷️</span>
+                        <span className="sp-row-text">
+                           {kakaoDetail.category_name}
+                        </span>
+                     </div>
+                  )}
+               </div>
+               <div className="sp-actions">
                   <a
                      href={kakaoDetail.place_url}
                      target="_blank"
                      rel="noreferrer"
-                     style={{
-                        marginTop: 12,
-                        display: "flex",
-                        justifyContent: "center",
-                        alignItems: "center",
-                        background: "#fee500",
-                        borderRadius: 10,
-                        padding: "9px",
-                        fontSize: 13,
-                        fontWeight: 700,
-                        color: "#111",
-                        textDecoration: "none",
-                     }}
+                     className="sp-kakao-btn"
                   >
-                     카카오맵에서 보기 →
+                     카카오맵 →
                   </a>
-               </>
-            )}
-            {!loadingDetail && !kakaoDetail && (
-               <div
-                  style={{
-                     marginTop: 10,
-                     fontSize: 11,
-                     color: "#bbb",
-                     textAlign: "center",
-                  }}
-               >
-                  카카오맵 정보를 찾을 수 없습니다
+                  {onLandValue && (
+                     <button onClick={onLandValue} className="sp-landval-btn">
+                        🏷️ 공시지가
+                     </button>
+                  )}
                </div>
-            )}
+            </>
+         )}
+         {!loadingDetail && !kakaoDetail && (
+            <div className="sp-no-kakao">
+               <span className="sp-no-kakao-text">카카오맵 정보 없음</span>
+               {onLandValue && (
+                  <button onClick={onLandValue} className="sp-landval-btn">
+                     🏷️ 공시지가
+                  </button>
+               )}
+            </div>
+         )}
+
+         {nearbyStores.length > 0 && (
+            <>
+               <div className="sp-divider sp-divider--top" />
+               <div className="sp-nearby-title">
+                  같은 건물 상가 ({nearbyStores.length}건)
+               </div>
+               <div className="sp-nearby-list">
+                  {nearbyStores.slice(0, 20).map((s, i) => (
+                     <StoreItem
+                        key={`${s.STORE_ID || "x"}-${i}`}
+                        store={s}
+                        onClick={onStoreSelect}
+                     />
+                  ))}
+               </div>
+            </>
+         )}
+      </div>
+   );
+}
+
+// ── 메인 컴포넌트 ───────────────────────────────────────────────
+export default function StorePopup({
+   popup,
+   kakaoDetail,
+   loadingDetail,
+   onClose,
+   nearbyStores = [],
+   onStoreSelect,
+   clusterStores = null,
+   onClusterSelect,
+   onLandValue,
+   hasDongPanel = false,
+   chatOpen = false,
+}) {
+   const [showList, setShowList] = useState(false);
+   const popupClass = `sp-popup${hasDongPanel ? " sp-popup--dong-open" : ""}${chatOpen ? " sp-popup--chat-open" : ""}`;
+
+   // 클러스터 목록 모드
+   if (clusterStores && clusterStores.length > 0 && !popup) {
+      return (
+         <div className={popupClass}>
+            <div style={{ height: 4, background: "var(--brand-blue)" }} />
+            <ClusterListView
+               stores={clusterStores}
+               onSelect={onClusterSelect}
+               onClose={onClose}
+            />
          </div>
+      );
+   }
+
+   if (!popup) return null;
+
+   // 단일 상가 + 뒤로가기(클러스터에서 온 경우)
+   if (showList && clusterStores?.length > 0) {
+      return (
+         <div className={popupClass}>
+            <div style={{ height: 4, background: "var(--brand-blue)" }} />
+            <ClusterListView
+               stores={clusterStores}
+               onSelect={(s) => {
+                  setShowList(false);
+                  onClusterSelect?.(s);
+               }}
+               onClose={onClose}
+            />
+         </div>
+      );
+   }
+
+   const cat = getCatStyle(popup.CAT_CD);
+   return (
+      <div className={popupClass}>
+         <div style={{ height: 4, background: cat.color }} />
+         <StoreDetailView
+            popup={popup}
+            kakaoDetail={kakaoDetail}
+            loadingDetail={loadingDetail}
+            onClose={onClose}
+            nearbyStores={nearbyStores}
+            onStoreSelect={onStoreSelect}
+            onBack={clusterStores?.length > 0 ? () => setShowList(true) : null}
+            onLandValue={onLandValue}
+         />
       </div>
    );
 }

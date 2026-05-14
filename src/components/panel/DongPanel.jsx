@@ -1,3 +1,6 @@
+// 개발 프론트 위치: TERRY\p02_frontEnd_React\src\panel\DongPanel.jsx
+// 공식 프론트 위치: frontend\src\components\map\panel\DongPanel.jsx
+
 import { SvcPanel } from "./DongPanel/SvcPanel";
 import { SVC_LABEL } from "./DongPanel/constants";
 import { StorePanel } from "./DongPanel/StorePanel";
@@ -23,13 +26,17 @@ export default function DongPanel({
    const isRE = dongPanel.mode === "realestate";
    const isStore = dongPanel.mode === "store";
    const panelColor = isRE ? "#2563EB" : isStore ? "#7C3AED" : "#059669";
+   const panelClass = isRE
+      ? "mv-dong-panel__header--re"
+      : isStore
+        ? "mv-dong-panel__header--store"
+        : "mv-dong-panel__header--sales";
    const panelBg = isRE ? "#eff6ff" : isStore ? "#f5f3ff" : "#f0fdf4";
 
    return (
       <div className="mv-dong-panel">
          <div
-            className="mv-dong-panel__header"
-            style={{ background: panelColor }}
+            className={`mv-dong-panel__header ${panelClass}`}
          >
             <div className="mv-dong-panel__header-row">
                <div>

@@ -21,15 +21,21 @@ export default defineConfig({
             rewrite: (path) => path.replace(/^\/kakao/, ""),
          },
          "/api": {
-            target: "http://localhost:8681",
-            changeOrigin: true,
-            rewrite: (path) => path.replace(/^\/api/, ""),
-         },
-         "/agent": {
             target: "http://localhost:8000",
             changeOrigin: true,
-            rewrite: (path) => path.replace(/^\/agent/, ""),
          },
       },
+   },
+   build: {
+      rollupOptions: {
+         output: {
+            manualChunks: {
+               "vendor-react": ["react", "react-dom", "react-router-dom"],
+               "vendor-icons": ["lucide-react"],
+               "vendor-map": ["ol"],
+            },
+         },
+      },
+      chunkSizeWarningLimit: 600,
    },
 });

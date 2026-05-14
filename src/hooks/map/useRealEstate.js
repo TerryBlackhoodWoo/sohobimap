@@ -1,7 +1,9 @@
-// 위치: src/hooks/useRealEstate.js
+// 개발 프론트 위치: TERRY\p02_frontEnd_React\src\hooks\useRealEstate.js
+// 공식 프론트 위치: frontend\src\hooks\map\useRealEstate.js
+
 // 실거래가 + 공실 API 연동 훅
 
-const REALESTATE_URL = "http://localhost:8682";
+const REALESTATE_URL = import.meta.env.VITE_REALESTATE_URL || "";
 
 /**
  * 시군구명 + 시도명 추출 (popup 객체에서)

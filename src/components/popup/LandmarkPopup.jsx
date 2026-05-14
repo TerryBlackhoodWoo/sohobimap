@@ -1,4 +1,5 @@
-// components/popup/LandmarkPopup.jsx
+// 개발 프론트 위치: TERRY\p02_frontEnd_React\src\popup\LandmarkPopup.jsx
+// 공식 프론트 위치: frontend\src\components\map\popup\LandmarkPopup.jsx
 
 const TYPE_STYLE = {
    12: {
